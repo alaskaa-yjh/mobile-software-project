@@ -1,16 +1,21 @@
 package com.example.quizapp
 
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
 
-class QuizViewModel : ViewModel() {
+class QuizViewModel(application: Application) : AndroidViewModel(application) {
+    private val soundManager = SoundManager(application.applicationContext)
     var currentScreen  by mutableStateOf<Screen>(Screen.Main)
     var selectedCategory by mutableStateOf("")
     var questions by mutableStateOf(listOf<Question>())
@@ -19,6 +24,10 @@ class QuizViewModel : ViewModel() {
     var wrongAnswers = mutableListOf<Question>()
     var rankings = mutableStateListOf<Pair<Int, String>>()
 
+    // 선택한 답변과 정답 여부를 추적
+    var selectedAnswer by mutableStateOf<Int?>(null)
+    var isAnswered by mutableStateOf(false)
+
 
     fun startQuiz(category: String) {
         selectedCategory = category
@@ -26,11 +35,18 @@ class QuizViewModel : ViewModel() {
         currentIndex = 0
         score = 0
         wrongAnswers.clear()
+        selectedAnswer = null
+        isAnswered = false
         currentScreen = Screen.Quiz(category)
     }
 
 
     fun answer(selected: Int) {
+        if (isAnswered) return // 이미 답변한 경우 무시
+
+        selectedAnswer = selected
+        isAnswered = true
+
         val correct = questions[currentIndex].answerIndex
         if (selected == correct) {
             score++
@@ -39,12 +55,19 @@ class QuizViewModel : ViewModel() {
             wrongAnswers.add(questions[currentIndex])
             playWrongSound()
         }
-        if (currentIndex < questions.lastIndex) {
-            currentIndex++
-        } else {
-            rankings.add(Pair(score, getCurrentTime()))
-            rankings.sortByDescending { it.first }
-            currentScreen = Screen.Result
+
+        // 1.5초 후 다음 문제로 이동
+        viewModelScope.launch {
+            delay(1500)
+            if (currentIndex < questions.lastIndex) {
+                currentIndex++
+                selectedAnswer = null
+                isAnswered = false
+            } else {
+                rankings.add(Pair(score, getCurrentTime()))
+                rankings.sortByDescending { it.first }
+                currentScreen = Screen.Result
+            }
         }
     }
 
@@ -56,12 +79,17 @@ class QuizViewModel : ViewModel() {
 
 
     private fun playCorrectSound() {
-// MediaPlayer.create(context, R.raw.correct).start()
+        soundManager.playCorrectSound()
     }
 
 
     private fun playWrongSound() {
-// MediaPlayer.create(context, R.raw.wrong).start()
+        soundManager.playWrongSound()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        soundManager.release()
     }
 
 
