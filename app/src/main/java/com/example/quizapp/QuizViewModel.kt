@@ -2,6 +2,7 @@ package com.example.quizapp
 
 
 import android.app.Application
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -12,21 +13,72 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
 
 class QuizViewModel(application: Application) : AndroidViewModel(application) {
     private val soundManager = SoundManager(application.applicationContext)
+    private val sharedPreferences = application.getSharedPreferences("QuizAppPrefs", Context.MODE_PRIVATE)
+    private val gson = Gson()
+    
     var currentScreen  by mutableStateOf<Screen>(Screen.Main)
     var selectedCategory by mutableStateOf("")
     var questions by mutableStateOf(listOf<Question>())
     var currentIndex by mutableStateOf(0)
     var score by mutableStateOf(0)
-    var wrongAnswers = mutableListOf<Question>()
-    var rankings = mutableStateListOf<Pair<Int, String>>()
+    var wrongAnswers = mutableStateListOf<Question>()
+    var rankings = mutableStateListOf<RankingEntry>()
 
     // 선택한 답변과 정답 여부를 추적
     var selectedAnswer by mutableStateOf<Int?>(null)
     var isAnswered by mutableStateOf(false)
+
+    init {
+        loadWrongAnswers()
+        loadRankings()
+    }
+
+    private fun loadWrongAnswers() {
+        val json = sharedPreferences.getString("wrongAnswers", null)
+        if (json != null) {
+            try {
+                val type = object : TypeToken<List<Question>>() {}.type
+                val savedList: List<Question> = gson.fromJson(json, type)
+                wrongAnswers.clear()
+                wrongAnswers.addAll(savedList)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun saveWrongAnswers() {
+        val json = gson.toJson(wrongAnswers.toList())
+        sharedPreferences.edit().putString("wrongAnswers", json).apply()
+    }
+
+    private fun loadRankings() {
+        val json = sharedPreferences.getString("rankings", null)
+        if (json != null) {
+            try {
+                val type = object : TypeToken<List<RankingEntry>>() {}.type
+                val savedList: List<RankingEntry> = gson.fromJson(json, type)
+                rankings.clear()
+                rankings.addAll(savedList)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // 오류 발생 시 기존 데이터 삭제하고 빈 리스트로 초기화
+                sharedPreferences.edit().remove("rankings").apply()
+                rankings.clear()
+            }
+        }
+    }
+
+    private fun saveRankings() {
+        val json = gson.toJson(rankings.toList())
+        sharedPreferences.edit().putString("rankings", json).apply()
+    }
 
 
     fun startQuiz(category: String) {
@@ -34,7 +86,7 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
         questions = QuestionData.getQuestions(category)
         currentIndex = 0
         score = 0
-        wrongAnswers.clear()
+        // wrongAnswers.clear() 제거 - 이전 오답들을 누적해서 보관
         selectedAnswer = null
         isAnswered = false
         currentScreen = Screen.Quiz(category)
@@ -52,7 +104,12 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
             score++
             playCorrectSound()
         } else {
-            wrongAnswers.add(questions[currentIndex])
+            val wrongQuestion = questions[currentIndex]
+            // 중복되지 않은 경우에만 추가
+            if (!wrongAnswers.contains(wrongQuestion)) {
+                wrongAnswers.add(wrongQuestion)
+                saveWrongAnswers() // 오답 저장
+            }
             playWrongSound()
         }
 
@@ -64,8 +121,9 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
                 selectedAnswer = null
                 isAnswered = false
             } else {
-                rankings.add(Pair(score, getCurrentTime()))
-                rankings.sortByDescending { it.first }
+                rankings.add(RankingEntry(score, getCurrentTime()))
+                rankings.sortByDescending { it.score }
+                saveRankings() // 랭킹 저장
                 currentScreen = Screen.Result
             }
         }
@@ -96,4 +154,14 @@ class QuizViewModel(application: Application) : AndroidViewModel(application) {
     fun goToMain() { currentScreen = Screen.Main }
     fun goToWrongNotes() { currentScreen = Screen.WrongNotes }
     fun goToRanking() { currentScreen = Screen.Ranking }
+    
+    fun clearWrongAnswers() {
+        wrongAnswers.clear()
+        saveWrongAnswers()
+    }
+    
+    fun clearRankings() {
+        rankings.clear()
+        saveRankings()
+    }
 }

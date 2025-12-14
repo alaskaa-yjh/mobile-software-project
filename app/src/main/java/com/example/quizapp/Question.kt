@@ -1,11 +1,27 @@
 package com.example.quizapp
 
 
+data class RankingEntry(
+    val score: Int,
+    val timestamp: String
+)
+
 data class Question(
     val question: String,
     val options: List<String>,
     val answerIndex: Int
-)
+) {
+    // 중복 확인을 위한 equals/hashCode는 question 텍스트 기반
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Question) return false
+        return question == other.question
+    }
+    
+    override fun hashCode(): Int {
+        return question.hashCode()
+    }
+}
 
 
 object QuestionData {

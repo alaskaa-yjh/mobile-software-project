@@ -940,6 +940,28 @@ fun WrongNoteScreen(viewModel: QuizViewModel) {
         ) {
             Text("메인으로 돌아가기", fontSize = 18.sp)
         }
+        
+        // 오답노트 초기화 버튼
+        if (viewModel.wrongAnswers.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = { viewModel.clearWrongAnswers() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = WrongRed),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("🗑️", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("오답노트 초기화", fontSize = 18.sp)
+                }
+            }
+        }
     }
 }
 
@@ -1058,8 +1080,8 @@ fun RankingScreen(viewModel: QuizViewModel) {
                         items(viewModel.rankings.withIndex().toList()) { (index, ranking) ->
                             RankingCard(
                                 rank = index + 1,
-                                score = ranking.first,
-                                date = ranking.second
+                                score = ranking.score,
+                                date = ranking.timestamp
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                         }
@@ -1079,6 +1101,28 @@ fun RankingScreen(viewModel: QuizViewModel) {
             shape = RoundedCornerShape(12.dp)
         ) {
             Text("메인으로 돌아가기", fontSize = 18.sp)
+        }
+        
+        // 랭킹 초기화 버튼
+        if (viewModel.rankings.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = { viewModel.clearRankings() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = WrongRed),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("🗑️", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("랭킹 기록 초기화", fontSize = 18.sp)
+                }
+            }
         }
     }
 }
